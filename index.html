@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>19世紀ヨーロッパと世界の動向ダンジョン！</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
+            background-color: #0b0b0e;
+            color: #ffffff;
+            text-align: center;
+            margin: 0;
+            padding: 15px;
+        }
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            background: #1c1c24;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.9);
+            border: 2px solid #3d3d52;
+            position: relative;
+        }
+        h1 { margin: 0 0 10px 0; font-size: 20px; color: #ffd700; text-shadow: 0 0 8px #ff8c00; }
+        
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .sound-btn {
+            background: #2a2a3a; color: #ffd700; border: 1px solid #ffd700;
+            padding: 4px 10px; border-radius: 12px; font-size: 12px; cursor: pointer;
+        }
+
+        /* アイテムインベントリ */
+        .item-bar {
+            display: flex; justify-content: center; gap: 10px; margin-bottom: 10px;
+        }
+        .item-btn {
+            background: #2d3436; border: 1px solid #f1c40f; color: #f1c40f;
+            padding: 5px 10px; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: bold;
+        }
+        .item-btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: #555; color: #888; }
+
+        .stage-select-screen { padding: 10px 0; }
+        .stage-card-list { display: flex; flex-direction: column; gap: 12px; margin: 15px 0; }
+        .stage-card {
+            background: #121218; border: 2px solid #3d3d52; border-radius: 10px;
+            padding: 12px 15px; display: flex; justify-content: space-between;
+            align-items: center; cursor: pointer; transition: all 0.2s;
+        }
+        .stage-card:hover:not(.locked) { border-color: #ffd700; background: #252535; }
+        .stage-card.locked { opacity: 0.5; cursor: not-allowed; border-color: #222; }
+        .stage-info { text-align: left; }
+        .stage-title { font-weight: bold; font-size: 16px; color: #fff; }
+        .stage-desc { font-size: 12px; color: #aaa; margin-top: 4px; }
+        .stage-badge { font-size: 18px; }
+
+        .status-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #121218; padding: 8px 15px; border-radius: 8px;
+            margin-bottom: 12px; font-size: 13px; font-weight: bold; border: 1px solid #2a2a3a;
+        }
+        .streak-count { color: #ff7675; font-size: 14px; }
+        .level-badge { background-color: #e67e22; color: white; padding: 3px 10px; border-radius: 4px; font-size: 12px; }
+
+        .stage-area {
+            position: relative; height: 210px; border-radius: 10px; overflow: hidden;
+            border: 3px solid #4a4a5e; margin-bottom: 15px; background-color: #0d0d12;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.95);
+        }
+        .wall-left, .wall-right {
+            position: absolute; top: 0; width: 35%; height: 100%;
+            background: repeating-linear-gradient(0deg, #1b222a 0px, #1b222a 15px, #11151a 16px, #11151a 30px);
+            z-index: 1;
+        }
+        .wall-left { left: 0; transform: perspective(200px) rotateY(45deg); transform-origin: left center; border-right: 3px solid #000; }
+        .wall-right { right: 0; transform: perspective(200px) rotateY(-45deg); transform-origin: right center; border-left: 3px solid #000; }
+        .corridor-center {
+            position: absolute; top: 0; left: 20%; width: 60%; height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(50,150,255,0.15), transparent 80%);
+        }
+
+        .monster-wrapper { position: absolute; top: 5px; left: 50%; transform: translateX(-50%); width: 100%; z-index: 2; }
+        .monster-img { height: 135px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.9)); transition: transform 0.1s; }
+
+        .slash-effect {
+            opacity: 0; position: absolute; top: 50px; left: 50%; transform: translateX(-50%) rotate(-35deg);
+            width: 0px; height: 10px; background: linear-gradient(90deg, transparent, #ffffff, #00d2d3, #ffffff, transparent);
+            box-shadow: 0 0 25px #00d2d3, 0 0 35px #ffffff; z-index: 10; pointer-events: none;
+        }
+        .slash-active { animation: slashAnim 0.3s ease-out forwards; }
+        @keyframes slashAnim { 0% { opacity: 0; width: 0px; } 40% { opacity: 1; width: 280px; } 100% { opacity: 0; width: 300px; } }
+
+        .hit-flash { animation: hitAnimation 0.35s ease-out; }
+        @keyframes hitAnimation {
+            0% { filter: brightness(4) sepia(1) hue-rotate(120deg) saturate(5); transform: translateX(-50%) scale(1.15) rotate(3deg); }
+            50% { filter: brightness(0.2); transform: translateX(-50%) scale(0.9) rotate(-3deg); }
+            100% { filter: drop-shadow(0 10px 15px rgba(0,0,0,0.9)); transform: translateX(-50%) scale(1); }
+        }
+
+        .monster-status {
+            position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 75%;
+            background: rgba(10, 10, 15, 0.9); padding: 6px 12px; border-radius: 12px; border: 1px solid #ffd700; z-index: 3;
+        }
+        .monster-name { font-weight: bold; font-size: 13px; color: #ffd700; margin-bottom: 4px; }
+        .hp-bar-bg { background: #2a2a35; height: 10px; border-radius: 5px; border: 1px solid #555; overflow: hidden; }
+        .hp-bar-fill { background: linear-gradient(90deg, #ff4757, #ff6b81); height: 100%; width: 100%; transition: width 0.4s ease-out; }
+
+        .quiz-area { background: #121218; padding: 15px; border-radius: 8px; text-align: left; border: 1px solid #2a2a3a; }
+        .question-text { font-size: 15px; font-weight: bold; margin-bottom: 12px; line-height: 1.4; color: #fff; }
+        .options { display: grid; grid-template-columns: 1fr; gap: 8px; }
+        
+        .btn {
+            background: linear-gradient(180deg, #3a4b7c, #243054); color: white; border: 1px solid #4f649e;
+            padding: 10px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; text-align: left; line-height: 1.3;
+        }
+        .btn:hover:not(:disabled) { background: linear-gradient(180deg, #4b62a3, #324475); }
+        .btn:disabled { opacity: 0.6; cursor: default; }
+
+        .immediate-exp {
+            margin-top: 12px; padding: 10px; border-radius: 6px; background: #1f1f2e; border: 1px solid #3d3d52; display: none;
+        }
+        .exp-title { font-weight: bold; font-size: 14px; margin-bottom: 5px; }
+        .exp-body { font-size: 13px; color: #ddd; line-height: 1.4; margin-bottom: 10px; }
+        .next-q-btn {
+            background: #2ed573; color: white; border: none; padding: 8px 16px; border-radius: 6px;
+            font-weight: bold; cursor: pointer; font-size: 13px; display: block; margin: 0 auto;
+        }
+
+        .chest-modal {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 100; border-radius: 12px;
+            flex-direction: column; justify-content: center; align-items: center;
+        }
+        .chest-icon { font-size: 70px; animation: bounce 0.6s infinite alternate; }
+        @keyframes bounce { 0% { transform: translateY(0); } 100% { transform: translateY(-15px); } }
+        .chest-msg { font-size: 18px; color: #ffd700; font-weight: bold; margin: 15px 0; text-shadow: 0 0 8px #ff8c00; }
+        .get-item-btn { background: #e67e22; color: white; border: none; padding: 10px 20px; font-size: 14px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        .clear-screen { display: none; padding: 10px 0; }
+        .action-btn {
+            background: linear-gradient(180deg, #2ed573, #1e964f); color: white; border: none; padding: 10px 20px;
+            font-size: 14px; border-radius: 8px; cursor: pointer; margin: 10px 5px 0 5px; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="top-bar">
+        <div style="font-size: 12px; color: #aaa;">学習範囲：19世紀ヨーロッパと国民意識</div>
+        <button class="sound-btn" onclick="toggleSound()">🔊 SOUND: <span id="soundStatus">ON</span></button>
+    </div>
+
+    <h1>⚔️ 19世紀欧州・国民国家ダンジョン！ ⚔️</h1>
+
+    <!-- 宝箱演出モーダル -->
+    <div id="chestModal" class="chest-modal">
+        <div id="chestIcon" class="chest-icon">📦</div>
+        <div id="chestMsg" class="chest-msg">2連続正解！宝箱を発見！</div>
+        <button class="get-item-btn" id="openChestBtn" onclick="openTreasureChest()">宝箱を開ける！</button>
+    </div>
+
+    <!-- 1. ステージ選択画面 -->
+    <div id="selectScreen" class="stage-select-screen">
+        <p style="font-size: 13px; color: #aaa; margin-bottom: 10px;">復習したいステージを選択してください（各10問）</p>
+        
+        <div class="stage-card-list">
+            <div class="stage-card" id="card1" onclick="startSelectedStage(1)">
+                <div class="stage-info">
+                    <div class="stage-title">ステージ 1：用語の基礎問題（10問）</div>
+                    <div class="stage-desc">人物名や国名・キーワードを覚える入門問題</div>
+                </div>
+                <div class="stage-badge" id="badge1">☆</div>
+            </div>
+
+            <div class="stage-card locked" id="card2" onclick="startSelectedStage(2)">
+                <div class="stage-info">
+                    <div class="stage-title">ステージ 2：標準問題（10問）</div>
+                    <div class="stage-desc">国ごとの歴史的展開や政治の動きを理解する標準問題</div>
+                </div>
+                <div class="stage-badge" id="badge2">🔒</div>
+            </div>
+
+            <div class="stage-card locked" id="card3" onclick="startSelectedStage(3)">
+                <div class="stage-info">
+                    <div class="stage-title">ステージ 3：発展問題（10問）</div>
+                    <div class="stage-desc">他地域との関連や年代・詳細な意義を問う難関問題</div>
+                </div>
+                <div class="stage-badge" id="badge3">🔒</div>
+            </div>
+        </div>
+        
+        <div style="font-size: 12px; color: #888; margin-top: 15px;">
+            現在の進捗度: <span style="color:#ffd700;" id="totalStars">☆☆☆</span>
+        </div>
+    </div>
+
+    <!-- 2. ゲームプレイ画面 -->
+    <div id="gameArea" style="display: none;">
+        <div class="status-bar">
+            <button onclick="goToSelect()" style="background:#3d3d52; color:white; border:none; border-radius:4px; padding:3px 8px; font-size:11px; cursor:pointer;">◀ 戻る</button>
+            <div class="streak-count">🔥 <span id="streakNum">0</span> 連続正解</div>
+            <div><span id="levelBadge" class="level-badge">ステージ 1</span></div>
+        </div>
+
+        <!-- 所持アイテム -->
+        <div class="item-bar">
+            <button class="item-btn" id="itemTwoOptsBtn" onclick="useItemTwoOpts()">✂️ 2択にする (<span id="countTwoOpts">0</span>)</button>
+            <button class="item-btn" id="itemHintBtn" onclick="useItemHint()">💡 ヒント (<span id="countHint">0</span>)</button>
+        </div>
+
+        <div class="stage-area">
+            <div class="wall-left"></div>
+            <div class="corridor-center"></div>
+            <div class="wall-right"></div>
+            
+            <div id="slashEffect" class="slash-effect"></div>
+
+            <div class="monster-wrapper">
+                <img id="monsterImg" class="monster-img" src="" alt="モンスター">
+            </div>
+
+            <div class="monster-status">
+                <div id="monsterName" class="monster-name">モンスター名</div>
+                <div class="hp-bar-bg">
+                    <div id="hpFill" class="hp-bar-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="quiz-area">
+            <div class="question-text" id="qText">問題文がここに入ります</div>
+            <div class="options" id="optionBtns"></div>
+
+            <div id="immediateExp" class="immediate-exp">
+                <div id="expTitle" class="exp-title"></div>
+                <div id="expBody" class="exp-body"></div>
+                <button class="next-q-btn" onclick="nextQuestion()">次の問題へ ▶</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. クリア画面 -->
+    <div id="clearArea" class="clear-screen">
+        <h2 style="color: #ffd700; font-size: 22px;" id="clearTitle">🎉 ステージクリア！ 🎉</h2>
+        <p id="resultMessage" style="font-size: 14px; line-height: 1.5; margin: 15px 0;"></p>
+
+        <div>
+            <button class="action-btn" id="nextBtn" onclick="nextStageAction()">次のステージへ</button>
+            <button class="action-btn" style="background:#0984e3;" onclick="goToSelect()">ステージ選択へ</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== Web Audio API サウンド ====================
+let audioCtx = null;
+let soundEnabled = true;
+let bgmInterval = null;
+
+function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    document.getElementById("soundStatus").innerText = soundEnabled ? "ON" : "OFF";
+    if (!soundEnabled) stopBGM();
+    else playBGM('select');
+}
+
+function playSE(type) {
+    if (!soundEnabled) return;
+    initAudio();
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+
+    if (type === 'hit') {
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+        gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+        osc.start(now); osc.stop(now + 0.15);
+    } else if (type === 'miss') {
+        osc.type = 'square'; osc.frequency.setValueAtTime(150, now);
+        osc.frequency.setValueAtTime(100, now + 0.15);
+        gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+        osc.start(now); osc.stop(now + 0.2);
+    } else if (type === 'chest') {
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(523, now);
+        osc.frequency.setValueAtTime(1046, now + 0.15);
+        gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+        osc.start(now); osc.stop(now + 0.3);
+    } else if (type === 'clear') {
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, idx) => {
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.type = 'triangle'; o.connect(g); g.connect(audioCtx.destination);
+            o.frequency.setValueAtTime(freq, now + idx * 0.12);
+            g.gain.setValueAtTime(0.2, now + idx * 0.12);
+            g.gain.linearRampToValueAtTime(0.01, now + idx * 0.12 + 0.3);
+            o.start(now + idx * 0.12); o.stop(now + idx * 0.12 + 0.3);
+        });
+    }
+}
+
+function stopBGM() {
+    if (bgmInterval) { clearInterval(bgmInterval); bgmInterval = null; }
+}
+
+function playBGM(mode) {
+    if (!soundEnabled) return;
+    initAudio(); stopBGM();
+    let step = 0; let notes = []; let speed = 250;
+
+    // ヨーロッパの荘厳さを意識したBGM
+    if (mode === 'select') { notes = [329, 392, 493, 392]; speed = 260; }
+    else if (mode === 1) { notes = [220, 261, 329, 261, 220, 196]; speed = 220; }
+    else if (mode === 2) { notes = [164, 196, 220, 246, 220, 196]; speed = 190; }
+    else if (mode === 3) { notes = [146, 174, 220, 174, 146, 130]; speed = 160; }
+
+    bgmInterval = setInterval(() => {
+        if (!soundEnabled) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.type = (mode === 'select') ? 'triangle' : 'sawtooth';
+        osc.frequency.setValueAtTime(notes[step % notes.length], now);
+        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.linearRampToValueAtTime(0.001, now + (speed / 1000) * 0.8);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + (speed / 1000) * 0.8);
+        step++;
+    }, speed);
+}
+
+// ==================== モンスターSVG（ヨーロッパ風デザイン） ====================
+const monsterSVGs = [
+    // ステージ1: ナポレオン3世風モンスター
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%231e3c72"/><stop offset="100%" stop-color="%232a5298"/></linearGradient></defs><circle cx="80" cy="80" r="70" fill="rgba(0,100,255,0.15)"/><path d="M30 50 L130 50 L110 120 L50 120 Z" fill="url(%23g1)" stroke="%23d4af37" stroke-width="3"/><path d="M20 50 L80 15 L140 50 Z" fill="%23111" stroke="%23d4af37" stroke-width="2"/><circle cx="60" cy="75" r="7" fill="%2300ffff"/><circle cx="100" cy="75" r="7" fill="%2300ffff"/><rect x="65" y="95" width="30" height="8" fill="%23d4af37"/><path d="M50 120 L80 145 L110 120" stroke="%23ff0055" stroke-width="4" fill="none"/></svg>',
+    // ステージ2: ビスマルク風モンスター（鉄血）
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><defs><linearGradient id="g2" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="%23434343"/><stop offset="100%" stop-color="%23000000"/></linearGradient></defs><circle cx="80" cy="80" r="75" fill="rgba(255,255,255,0.1)"/><path d="M40 40 L120 40 L130 130 L30 130 Z" fill="url(%23g2)" stroke="%23999" stroke-width="3"/><path d="M50 40 L80 10 L110 40 Z" fill="%23d4af37"/><circle cx="80" cy="22" r="5" fill="%23fff"/><circle cx="60" cy="70" r="8" fill="%23ff0000"/><circle cx="100" cy="70" r="8" fill="%23ff0000"/><rect x="50" y="95" width="60" height="10" fill="%23333" stroke="%23777" stroke-width="2"/></svg>',
+    // ステージ3: ロンドン万博ゴーレム（結晶・産業）
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><defs><linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="%2300b4db"/><stop offset="100%" stop-color="%230083b0"/></linearGradient></defs><circle cx="80" cy="80" r="75" fill="rgba(0,255,200,0.15)"/><polygon points="80,15 135,50 120,130 40,130 25,50" fill="url(%23g3)" stroke="%23fff" stroke-width="3"/><line x1="25" y1="50" x2="135" y2="50" stroke="%23fff" stroke-width="2"/><line x1="80" y1="15" x2="80" y2="130" stroke="%23fff" stroke-width="2"/><circle cx="60" cy="75" r="10" fill="%23ffea00"/><circle cx="100" cy="75" r="10" fill="%23ffea00"/><polygon points="80,90 65,115 95,115" fill="%23fff"/></svg>'
+];
+
+const monsterNames = ["帝国の亡霊 ナポレオン3世", "鉄血宰相 ビスマルク", "大英帝国の巨魁 万国博覧会ゴーレム"];
+const levelBadges = ["ステージ 1：基礎知識", "ステージ 2：標準問題", "ステージ 3：発展問題"];
+
+// ==================== 問題データ（各ステージ10問：計30問） ====================
+const questionsByLevel = {
+    // ステージ1：基礎問題（語句・人物・出来事）
+    1: [
+        { q: "19世紀にフランス革命の理念により生まれ、言語や歴史などを共有する人々の意識を何という？", options: ["国民（国民意識）", "領主", "農奴", "貴族"], ans: 0, exp: "身分や地域の違いをこえて「国民」としてまとまる意識（ナショナリズム）が高まりました。", hint: "「国」の「民」としての意識です。" },
+        { q: "1851年に世界で初めて万国博覧会が開催された、首都ロンドンを擁する国は？", options: ["イギリス", "フランス", "ドイツ", "ロシア"], ans: 0, exp: "世界最大の都市ロンドンで第1回万国博覧会が開かれ、「世界の工場」としての技術力を示しました。", hint: "産業革命を最初に達成した島国です。" },
+        { q: "1852年にフランスで皇帝となり、積極的な外交を行った人物（ナポレオンの甥）は？", options: ["ナポレオン3世", "ナポレオン1世", "ルイ16世", "ビスマルク"], ans: 0, exp: "フランスの第二帝政を確立したナポレオン3世です。", hint: "ナポレオンの「3世」です。" },
+        { q: "「鉄血宰相」と呼ばれ、富国強兵を進めてドイツ統一を達成したプロイセンの宰相は？", options: ["ビスマルク", "カヴール", "メッテルニヒ", "ディズレーリ"], ans: 0, exp: "「鉄と血（兵力と軍備）」によってドイツ統一を進めました。", hint: "「ビス〇〇ク」という名前です。" },
+        { q: "ドイツ統一の過程で、1871年にプロイセン国王が皇帝となって成立した帝国は？", options: ["ドイツ帝国", "オーストリア帝国", "ロシア帝国", "大英帝国"], ans: 0, exp: "ビスマルクの主導によりドイツ帝国が成立しました。", hint: "ドイツを中心とする帝国です。" },
+        { q: "1861年にオーストリアとの戦争などを経て統一を達成し、成立した南欧の王国は？", options: ["イタリア王国", "スペイン王国", "ギリシャ王国", "ポルトガル王国"], ans: 0, exp: "中世以来分裂していたイタリア半島が統一され、イタリア王国が成立しました。", hint: "ブーツの形をした半島にある国です。" },
+        { q: "1830年や1848年にフランスで起こり、ヨーロッパ中に影響を与えた出来事は？", options: ["革命", "宗教改革", "産業革命", "十字軍"], ans: 0, exp: "1830年の7月革命や1848年の2月革命などの政治的革命です。", hint: "政治体制を大きく変える動きです。" },
+        { q: "19世紀初めにメキシコやブラジルなど多くの国が独立を果たした地域はどこ？", options: ["中南米（ラテンアメリカ）", "東アジア", "アフリカ", "北欧"], ans: 0, exp: "スペインやポルトガルの支配下にあった中南米諸国が相次いで独立しました。", hint: "南アメリカや中央アメリカの地域です。" },
+        { q: "1848年のフランス2月革命によって確立された政治制度で、男性全員に与えられた選挙権は？", options: ["男性普通選挙", "制限選挙", "財産選挙", "女性参政権"], ans: 0, exp: "財産制限のない男性普通選挙が導入されました。", hint: "「男性」全員の「普通」選挙です。" },
+        { q: "19世紀のイギリスにおいて、国王に対する優位性をさらに増した政治の場は？", options: ["議会", "教会", "最高裁判所", "軍隊"], ans: 0, exp: "イギリスでは議会政治が発達し、男性労働者にも選挙権が広がりました。", hint: "議員たちが議論する場所です。" }
+    ],
+    // ステージ2：標準問題（因果関係・理解）
+    2: [
+        { q: "フランス革命やナポレオンの支配を経て、ヨーロッパ各地で高まった意識の説明として正しいものは？", options: ["身分や地域の違いをこえて「国民」としてまとまろうとする意識", "国王や教皇に絶対服従しようとする意識", "自国の文化を捨てて外国に従う意識", "すべての国が一つの国家に合体しようとする意識"], ans: 0, exp: "ナポレオンへの反発や権利の平等という理想から、国民としての一体感が高まりました。", hint: "「国民」としてまとまる方向性です。" },
+        { q: "19世紀のイギリスが「世界の工場」と呼ばれるようになった背景は？", options: ["世界初の万博を開き、強大な産業力・軍事力を世界に示したから", "農業だけを極めて世界中に食料を売ったから", "ヨーロッパで唯一戦争に一切関わらなかったから", "他国の工場をすべて買い取ったから"], ans: 0, exp: "1851年のロンドン万博に象徴される高い工業生産力により「世界の工場」と呼ばれました。", hint: "高い工業力と万博の開催が理由です。" },
+        { q: "ドイツ統一前の18世紀において、ドイツ地域で強国として対立していた2つの国は？", options: ["プロイセンとオーストリア", "フランスとイギリス", "イタリアとスペイン", "ロシアとスウェーデン"], ans: 0, exp: "多くの小国に分裂していたドイツでは、プロイセンとオーストリアが強国でした。", hint: "プロイセンともう一つの大国です。" },
+        { q: "ビスマルクが行った「鉄血政策」の具体的な内容として正しいものは？", options: ["強力な陸軍を作り、オーストリアやフランスとの戦争に勝利して統一した", "鉄と血の貿易を盛んにして経済を豊かにした", "言論の自由を完全に認めて話し合いだけで統一した", "イギリスと同盟を結んでアフリカをすべて占領した"], ans: 0, exp: "軍備拡張（鉄と血）を進め、オーストリア・フランスを破って統一を成し遂げました。", hint: "軍事力（陸軍）による統一です。" },
+        { q: "19世紀後半にドイツ帝国が急速に成長した分野として最も適切なものは？", options: ["産業（工業）の発展と強力な陸軍の形成", "農業中心の伝統社会への逆戻り", "イギリスの植民地になること", "海外貿易の全面禁止"], ans: 0, exp: "ドイツは急速に産業化を進め、イギリスに次ぐ強国へと成長しました。", hint: "工業と陸軍の強化です。" },
+        { q: "19世紀初めに中南米諸国が独立運動を起こしたきっかけ（背景）は？", options: ["大航海時代以来のスペインやポルトガルの弱体化とフランス革命の思想伝播", "イギリスが中南米をすべて買い取ったため", "アメリカ合衆国に侵略されて植民地になったため", "産業革命が失敗して飢饉が起きたため"], ans: 0, exp: "本国（スペイン・ポルトガル）の衰退やフランス革命の自由・平等の思想が影響しました。", hint: "旧宗主国の衰退と革命思想の影響です。" },
+        { q: "フランスのナポレオン3世の政治の特徴として正しいものは？", options: ["積極的な外交を展開したが、ドイツとの戦争に敗れて退位した", "イギリスと戦争をして勝利しヨーロッパを支配した", "徹底した鎖国を行って国民の外出を禁じた", "皇帝にならずに民主的な共和政を最後まで維持した"], ans: 0, exp: "ナポレオン3世は外政に失敗し、1870年の普仏（プロイセン・フランス）戦争で敗北・捕虜となりました。", hint: "ドイツ（プロイセン）との戦争に敗れました。" },
+        { q: "イタリア統一運動において、イタリア王国が成立した（1861年）際の支援国は？", options: ["フランス", "イギリス", "ロシア", "アメリカ"], ans: 0, exp: "フランスの支援を得てオーストリアと戦い、統一を進めました。", hint: "ナポレオン3世のいた国です。" },
+        { q: "19世紀のヨーロッパで、憲法が定められ議会が開かれるようになった理由として正しいものは？", options: ["革命や憲法制定運動を通じて、国民が政治に参加するようになったから", "国王が一人で政治をするのが面倒になったから", "外国から命令されて無理やり作らされたから", "戦争が完全になくなって平和になったから"], ans: 0, exp: "各地で起きた革命や国民運動により、憲法や議会が整備されていきました。", hint: "国民自身の運動や革命の結果です。" },
+        { q: "19世紀前半のイギリスで、労働者や市民の要求によって進んだ変化は？", options: ["選挙権が拡大し、男性労働者にも政治参加の道が開かれた", "女性だけに選挙権が与えられた", "議会が廃止されて国王の絶対王政になった", "すべての工場が閉鎖された"], ans: 0, exp: "段階的な選挙法改正により、男性労働者層へ選挙権が広がっていきました。", hint: "選挙権の拡大です。" }
+    ],
+    // ステージ3：発展問題（年代・詳細・他地域との関連）
+    3: [
+        { q: "ドイツ統一の式典が行われた場所はどこ？（1871年、フランス国内の歴史的建築物）", options: ["ヴェルサイユ宮殿（鏡の間）", "ルーヴル美術館", "ノートルダム大聖堂", "バッキンガム宮殿"], ans: 0, exp: "普仏戦争に勝利したドイツは、フランスのヴェルサイユ宮殿で統一式典を行いました。", hint: "フランスの豪華な宮殿です。" },
+        { q: "中南米で最も早く（19世紀初頭に）独立を達成し、アルゼンチンなどの独立にも影響を与えた国々は？", options: ["メキシコやブラジル、アルゼンチンなど", "アメリカとカナダ", "エジプトと南アフリカ", "オーストラリアとニュージーランド"], ans: 0, exp: "19世紀初めにメキシコ、ブラジル、アルゼンチンなどが相次いで独立しました。", hint: "メキシコやブラジルが含まれる選択肢です。" },
+        { q: "1848年にパリで起きた「2月革命」の結果として正しいものは？", options: ["ルイ・フィリップの王政が倒れ、第二共和政が成立した", "ナポレオン1世が皇帝に復帰した", "イギリスの植民地になった", "ドイツ帝国に吸収された"], ans: 0, exp: "2月革命により王政が倒れ、男性普通選挙に基づく第二共和政がスタートしました。", hint: "王政が倒れて共和政になりました。" },
+        { q: "1871年にドイツ帝国が成立した際、初代ドイツ皇帝に就任したプロイセン国王は？", options: ["ヴィルヘルム1世", "フリードリヒ2世", "ニコライ2世", "ヴィクトリア女王"], ans: 0, exp: "プロイセン国王ヴィルヘルム1世が初代ドイツ皇帝となりました。", hint: "ヴィルヘルム「1世」です。" },
+        { q: "イタリア統一運動（リソルジメント）で、南イタリアを征服して国王に献上した英雄は？", options: ["ガリバルディ", "カヴール", "マッツィーニ", "ムッソリーニ"], ans: 0, exp: "ガリバルディは赤シャツ隊（千人隊）を率いて南イタリアを攻略し、統一に貢献しました。", hint: "赤シャツ隊を率いた英雄です。" },
+        { q: "19世紀中頃のイギリスで、万国博覧会が開かれた「クリスタル・パレス（水晶宮）」の特徴は？", options: ["鉄とガラスで作られた近代的な大建築", "すべて木造で作られた伝統的建築", "石造りの古代ギリシャ風神殿", "レンガ造りの要塞"], ans: 0, exp: "鉄とガラスを大量に使用した新しい建築様式で、工業力の象徴となりました。", hint: "「鉄とガラス」の建築です。" },
+        { q: "1871年の普仏戦争敗北後、フランスで一時的に樹立された史上初の労働者による自治政府は？", options: ["パリ・コミューン", "サンフランシスコ会義", "国民公会", "総裁政府"], ans: 0, exp: "降伏に反対するパリ市民や労働者が「パリ・コミューン」を樹立しました。", hint: "「パリ・〇〇〇〇n」です。" },
+        { q: "19世紀のヨーロッパで高まった「ナショナリズム」がもたらした二面性の説明は？", options: ["国民の団結を強める一方、他民族への排斥や対立を生む原因にもなった", "完全に世界平和をもたらし、すべての戦争を無くした", "宗教の違いを完全に消し去った", "経済を衰退させ、全員を農民に戻した"], ans: 0, exp: "自国の統一や自立を強める一方で、他国との排他的なナショナリズムの衝突を生みました。", hint: "団結と他者排斥の両面です。" },
+        { q: "オーストリア帝国が1867年にハンガリーの自治を認め、結成した同君連合国家は？", options: ["オーストリア・ハンガリー帝国", "プロイセン王国", "オスマン帝国", "神聖ローマ帝国"], ans: 0, exp: "プロイセンに敗れたオーストリアは、ハンガリー王国との二重帝国へ移行しました。", hint: "オーストリアとハンガリーの二重帝国です。" },
+        { q: "次の出来事を「古い順」に正しく並べたものはどれ？（A:ロンドン万博 B:ドイツ帝国成立 C:フランス2月革命）", options: ["C → A → B", "A → C → B", "B → A → C", "C → B → A"], ans: 0, exp: "フランス2月革命(1848) → ロンドン万博(1851) → ドイツ帝国成立(1871)の順です。", hint: "1848年の革命が最も古い出来事です。" }
+    ]
+};
+
+// ==================== ゲーム状態変数 ====================
+let userProgress = JSON.parse(localStorage.getItem('dungeon_progress_euro_v1')) || { 1: 0, 2: 0, 3: 0 };
+let currentStage = 1;
+let currentQ = 0;
+let correctAnswersCount = 0;
+let streakCount = 0;
+
+let items = { twoOpts: 0, hint: 0 };
+
+// ==================== 画面遷移・処理 ====================
+function updateSelectScreenUI() {
+    for (let i = 1; i <= 3; i++) {
+        const card = document.getElementById(`card${i}`);
+        const badge = document.getElementById(`badge${i}`);
+        const isUnlocked = (i === 1) || (userProgress[i - 1] > 0);
+
+        if (isUnlocked) {
+            card.classList.remove('locked');
+            badge.innerText = (userProgress[i] > 0) ? "★" : "☆";
+        } else {
+            card.classList.add('locked');
+            badge.innerText = "🔒";
+        }
+    }
+    let total = 0;
+    for (let i = 1; i <= 3; i++) if (userProgress[i] > 0) total++;
+    document.getElementById("totalStars").innerText = "★".repeat(total) + "☆".repeat(3 - total);
+}
+
+function startSelectedStage(stageNum) {
+    const isUnlocked = (stageNum === 1) || (userProgress[stageNum - 1] > 0);
+    if (!isUnlocked) { alert("前のステージをクリアすると解放されます！"); return; }
+
+    currentStage = stageNum;
+    currentQ = 0;
+    correctAnswersCount = 0;
+    streakCount = 0;
+
+    document.getElementById("selectScreen").style.display = "none";
+    document.getElementById("clearArea").style.display = "none";
+    document.getElementById("gameArea").style.display = "block";
+
+    updateItemUI();
+    playBGM(currentStage);
+    loadQuestion();
+}
+
+function goToSelect() {
+    updateSelectScreenUI();
+    document.getElementById("gameArea").style.display = "none";
+    document.getElementById("clearArea").style.display = "none";
+    document.getElementById("selectScreen").style.display = "block";
+    playBGM('select');
+}
+
+function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function updateItemUI() {
+    document.getElementById("countTwoOpts").innerText = items.twoOpts;
+    document.getElementById("countHint").innerText = items.hint;
+    document.getElementById("itemTwoOptsBtn").disabled = (items.twoOpts <= 0);
+    document.getElementById("itemHintBtn").disabled = (items.hint <= 0);
+    document.getElementById("streakNum").innerText = streakCount;
+}
+
+function loadQuestion() {
+    const qData = questionsByLevel[currentStage][currentQ];
+    
+    document.getElementById("immediateExp").style.display = "none";
+    document.getElementById("qText").innerText = `${currentQ + 1}. ${qData.q}`;
+    
+    const idx = currentStage - 1;
+    document.getElementById("monsterImg").src = monsterSVGs[idx];
+    document.getElementById("monsterName").innerText = monsterNames[idx];
+    document.getElementById("levelBadge").innerText = levelBadges[idx];
+
+    const totalQ = questionsByLevel[currentStage].length;
+    const remainingHpPercent = ((totalQ - correctAnswersCount) / totalQ) * 100;
+    document.getElementById("hpFill").style.width = remainingHpPercent + "%";
+
+    const container = document.getElementById("optionBtns");
+    container.innerHTML = "";
+    
+    const shuffledOptions = shuffleArray(qData.options);
+    shuffledOptions.forEach((optText) => {
+        const btn = document.createElement("button");
+        btn.className = "btn";
+        btn.innerText = optText;
+        btn.onclick = () => checkAnswer(optText, qData.options[qData.ans], qData);
+        container.appendChild(btn);
+    });
+
+    updateItemUI();
+}
+
+function checkAnswer(selectedText, correctText, qData) {
+    const btns = document.querySelectorAll(".btn");
+    btns.forEach(b => b.disabled = true);
+
+    const monsterImg = document.getElementById("monsterImg");
+    const slashEffect = document.getElementById("slashEffect");
+    const expBox = document.getElementById("immediateExp");
+    const expTitle = document.getElementById("expTitle");
+    const expBody = document.getElementById("expBody");
+
+    let isCorrect = (selectedText === correctText);
+
+    if (isCorrect) {
+        correctAnswersCount++;
+        streakCount++;
+        playSE('hit');
+
+        slashEffect.classList.remove("slash-active"); void slashEffect.offsetWidth;
+        slashEffect.classList.add("slash-active");
+
+        monsterImg.classList.remove("hit-flash"); void monsterImg.offsetWidth;
+        monsterImg.classList.add("hit-flash");
+
+        const totalQ = questionsByLevel[currentStage].length;
+        document.getElementById("hpFill").style.width = (((totalQ - correctAnswersCount) / totalQ) * 100) + "%";
+
+        expTitle.innerHTML = "<span style='color:#2ed573;'>⚔️ 正解！</span>";
+    } else {
+        streakCount = 0;
+        playSE('miss');
+        expTitle.innerHTML = `<span style='color:#ff4757;'>❌ 不正解... (正解: ${correctText})</span>`;
+    }
+
+    expBody.innerText = qData.exp;
+    expBox.style.display = "block";
+
+    updateItemUI();
+
+    if (isCorrect && streakCount > 0 && streakCount % 2 === 0) {
+        setTimeout(() => { showChestModal(); }, 600);
+    }
+}
+
+function showChestModal() {
+    playSE('chest');
+    document.getElementById("chestIcon").innerText = "📦";
+    document.getElementById("chestMsg").innerText = `${streakCount}連続正解！宝箱を発見！`;
+    document.getElementById("openChestBtn").style.display = "inline-block";
+    document.getElementById("chestModal").style.display = "flex";
+}
+
+function openTreasureChest() {
+    const gotItem = (Math.random() < 0.5) ? 'twoOpts' : 'hint';
+    if (gotItem === 'twoOpts') {
+        items.twoOpts++;
+        document.getElementById("chestIcon").innerText = "✂️";
+        document.getElementById("chestMsg").innerText = "「2択にする」アイテムをゲット！";
+    } else {
+        items.hint++;
+        document.getElementById("chestIcon").innerText = "💡";
+        document.getElementById("chestMsg").innerText = "「ヒント」アイテムをゲット！";
+    }
+    document.getElementById("openChestBtn").style.display = "none";
+    updateItemUI();
+
+    setTimeout(() => {
+        document.getElementById("chestModal").style.display = "none";
+    }, 1200);
+}
+
+function useItemTwoOpts() {
+    if (items.twoOpts <= 0) return;
+    items.twoOpts--;
+    updateItemUI();
+
+    const qData = questionsByLevel[currentStage][currentQ];
+    const correctText = qData.options[qData.ans];
+    const btns = Array.from(document.querySelectorAll(".btn"));
+
+    let removed = 0;
+    btns.forEach(btn => {
+        if (btn.innerText !== correctText && removed < 2) {
+            btn.style.visibility = "hidden";
+            removed++;
+        }
+    });
+}
+
+function useItemHint() {
+    if (items.hint <= 0) return;
+    items.hint--;
+    updateItemUI();
+
+    const qData = questionsByLevel[currentStage][currentQ];
+    alert(`💡 ヒント: ${qData.hint}`);
+}
+
+function nextQuestion() {
+    currentQ++;
+    const totalQ = questionsByLevel[currentStage].length;
+
+    if (currentQ < totalQ) {
+        loadQuestion();
+    } else {
+        finishStage();
+    }
+}
+
+function finishStage() {
+    stopBGM();
+    playSE('clear');
+
+    document.getElementById("gameArea").style.display = "none";
+    document.getElementById("clearArea").style.display = "block";
+
+    const totalQ = questionsByLevel[currentStage].length;
+    const isPassed = correctAnswersCount >= 7;
+
+    const clearTitle = document.getElementById("clearTitle");
+    const resultMsg = document.getElementById("resultMessage");
+    const nextBtn = document.getElementById("nextBtn");
+
+    if (isPassed) {
+        userProgress[currentStage] = Math.max(userProgress[currentStage], correctAnswersCount);
+        localStorage.setItem('dungeon_progress_euro_v1', JSON.stringify(userProgress));
+
+        clearTitle.innerText = "🎉 ステージクリア！ 🎉";
+        resultMsg.innerHTML = `正解数: <strong>${correctAnswersCount} / ${totalQ}</strong><br>見事に敵を撃破し、歴史の知識をマスターしました！`;
+        
+        if (currentStage < 3) {
+            nextBtn.style.display = "inline-block";
+            nextBtn.innerText = "次のステージへ";
+        } else {
+            nextBtn.style.display = "none";
+        }
+    } else {
+        clearTitle.innerText = "💀 討伐失敗... 💀";
+        resultMsg.innerHTML = `正解数: <strong>${correctAnswersCount} / ${totalQ}</strong><br>クリアには7問以上の正解が必要です。もう一度挑戦しよう！`;
+        nextBtn.style.display = "inline-block";
+        nextBtn.innerText = "もう一度挑戦する";
+    }
+}
+
+function nextStageAction() {
+    const totalQ = questionsByLevel[currentStage].length;
+    if (correctAnswersCount >= 7 && currentStage < 3) {
+        startSelectedStage(currentStage + 1);
+    } else {
+        startSelectedStage(currentStage);
+    }
+}
+
+// 初期化実行
+updateSelectScreenUI();
+</script>
+</body>
+</html>
